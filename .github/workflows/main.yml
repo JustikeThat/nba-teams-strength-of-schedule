@@ -1,3 +1,4 @@
+
 name: Weekly NBA strength of schedule
 
 on:
@@ -23,6 +24,27 @@ jobs:
           python-version: "3.12"
 
       - run: pip install -r requirements.txt
+
+      - name: Update rankings from ESPN BPI
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import re, csv, requests
+          url = "https://www.espn.com/nba/bpi"
+          html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30).text
+          order = []
+          for slug in re.findall(r"/nba/team/_/name/[a-z]+/([a-z0-9-]+)", html):
+              if slug not in order:
+                  order.append(slug)
+          if len(order) != 30 or order == sorted(order):
+              raise SystemExit("Could not read BPI order (found %d teams); keeping old rankings.csv" % len(order))
+          with open("rankings.csv", "w", newline="") as f:
+              w = csv.writer(f)
+              w.writerow(["team", "rank"])
+              for i, slug in enumerate(order, 1):
+                  w.writerow([slug.replace("-", " "), i])
+          print("Top 5:", order[:5])
+          PY
 
       - name: Build graphic
         env:
