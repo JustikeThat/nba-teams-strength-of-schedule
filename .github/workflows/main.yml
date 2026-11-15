@@ -1,1 +1,49 @@
+name: Weekly NBA strength of schedule
 
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "Any date in the week, YYYY-MM-DD (blank = this/next Monday)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Build graphic
+        env:
+          RANKINGS_URL: ${{ vars.RANKINGS_URL }}
+          START: ${{ github.event.inputs.start }}
+        run: |
+          mkdir -p output
+          ARGS=""
+          if [ -n "$START" ]; then ARGS="--start $START"; fi
+          if [ -n "$RANKINGS_URL" ]; then
+            python nba_sos.py --rankings-url "$RANKINGS_URL" --save-rankings rankings.csv --out output $ARGS \
+              || python nba_sos.py --rankings rankings.csv --out output $ARGS
+          else
+            python nba_sos.py --rankings rankings.csv --out output $ARGS
+          fi
+          cp "$(ls -t output/*.png | head -1)" latest.png
+
+      - name: Save results to the repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Weekly strength-of-schedule update"
+          git push
