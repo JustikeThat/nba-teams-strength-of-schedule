@@ -1,4 +1,3 @@
-
 name: Weekly NBA strength of schedule
 
 on:
@@ -61,6 +60,15 @@ jobs:
             python nba_sos.py --rankings rankings.csv --out output $ARGS
           fi
           cp "$(ls -t output/*.png | head -1)" latest.png
+
+      - name: Send graphic to Discord
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -sS -f -F "content=NBA strength of schedule" -F "file=@latest.png" "$DISCORD_WEBHOOK"
+          fi
 
       - name: Save results to the repo
         run: |
